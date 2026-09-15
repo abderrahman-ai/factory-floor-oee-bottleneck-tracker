@@ -3,13 +3,11 @@
 <br/>
 
 ```
-██████╗ ██████╗  ██████╗     ███╗   ██╗██████╗ ███╗   ██╗
-██╔══██╗██╔══██╗██╔════╝     ████╗  ██║██╔══██╗████╗  ██║
-██████╔╝██████╔╝██║  ███╗    ██╔██╗ ██║██████╔╝██╔██╗ ██║
-██╔══██╗██╔═══╝ ██║   ██║    ██║╚██╗██║██╔═══╝ ██║╚██╗██║
-██║  ██║██║     ╚██████╔╝    ██║ ╚████║██║     ██║ ╚████║
-╚═╝  ╚═╝╚═╝      ╚═════╝     ╚═╝  ╚═══╝╚═╝     ╚═╝  ╚═══╝
-                         FACTORY OEE
+    _________   ________________  ______  __   ____  ____________
+   / ____/   | / ____/_  __/ __ \/ __ \ \/ /  / __ \/ ____/ ____/
+  / /_  / /| |/ /     / / / / / / /_/ /\  /  / / / / __/ / __/   
+ / __/ / ___ / /___  / / / /_/ / _, _/ / /  / /_/ / /___/ /___   
+/_/   /_/  |_\____/ /_/  \____/_/ |_| /_/   \____/_____/_____/
 ```
 
 <h3>Factory Floor OEE & Bottleneck Intelligence Tracker</h3>
@@ -250,7 +248,7 @@ git clone https://github.com/abderrahman-ai/factory-floor-oee-bottleneck-tracker
 git checkout -b feat/new-capability
 
 # 3. Commit your changes
-git commit -m "feat: enhance node error handling"
+git commit -m "style: update unique custom ASCII art banner"
 
 # 4. Push and open a Pull Request
 git push origin feat/new-capability
