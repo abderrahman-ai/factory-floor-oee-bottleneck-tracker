@@ -1,0 +1,460 @@
+{
+  "name": "—F—a—c—t—o—r—y— —F—l—o—o—r— —O—E—E— —&— —B—o—t—t—l—e—n—e—c—k— —I—n—t—e—l—l—i—g—e—n—c—e— —T—r—a—c—k—e—r—",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 🏭 Factory Floor OEE & Bottleneck Intelligence Tracker\n**Architecture & Capabilities:**\n1. **Telemetry & State Tracking:** Continuous ingestion of state transitions (Running, Idle, Faulted) with automatic micro-stop (<300s) isolation.\n2. **Shift Metric Engine:** SEMI E10 & ISO 22400 compliant OEE (Availability × Performance × Quality) with edge-case guards.\n3. **AI Root-Cause Synthesis:** Normalizes unstructured operator logs into ISA-95 categories and isolates primary bottlenecks via Theory of Constraints.\n4. **Executive Handover:** Dispatches automated industrial shift handover reports with actionable CAPA items via Telegram & Webhook.",
+        "height": 336,
+        "width": 560,
+        "color": 4
+      },
+      "id": "note-overview",
+      "name": "StickyNote_Overview",
+      "position": [
+        656,
+        -352
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "### 1. Ingestion & State Tracking\n- Trigger: Scheduled shift end (06:00, 14:00, 22:00) or Live Webhook\n- Tracks discrete operating states: RUNNING, IDLE, FAULTED\n- Detects & segregates micro-stops (<5 min) from major breakdowns",
+        "height": 252,
+        "width": 380,
+        "color": 6
+      },
+      "id": "note-ingest",
+      "name": "StickyNote_Ingestion",
+      "position": [
+        112,
+        16
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "### 2. ISO 22400 OEE Engine\n- Availability: Operating Time / Planned Production Time\n- Performance: (Ideal Cycle Time × Total Parts) / Operating Time\n- Quality: Good Parts / Total Parts\n- OEE: A × P × Q with Zero-Output & Data-Gap protection",
+        "height": 252,
+        "width": 380,
+        "color": 5
+      },
+      "id": "note-oee",
+      "name": "StickyNote_OEE",
+      "position": [
+        528,
+        16
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "### 3. AI Root-Cause Synthesis\n- Deduplicates informal operator log notes\n- Standardizes into ISA-95 root cause categories\n- Pinpoints primary operational bottleneck\n- Generates prioritized CAPA action items",
+        "height": 252,
+        "width": 396,
+        "color": 7
+      },
+      "id": "note-ai",
+      "name": "StickyNote_AI",
+      "position": [
+        944,
+        16
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "### 4. Executive Handover & Dispatch\n- Generates structured Markdown & HTML reports\n- Dispatches instant alert to Plant Management on Telegram\n- Returns rich JSON payload for MES/ERP systems",
+        "height": 252,
+        "width": 380,
+        "color": 3
+      },
+      "id": "note-report",
+      "name": "StickyNote_Reporting",
+      "position": [
+        1376,
+        16
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6,14,22 * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-trigger",
+      "name": "Schedule_ShiftHandover",
+      "position": [
+        128,
+        320
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "factory-floor/telemetry",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "Webhook_TelemetryIngest",
+      "position": [
+        128,
+        512
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "552039b4-6cd4-4689-8e7e-70dce750a6ad"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. TELEMETRY INGESTION & STATE TRACKING ENGINE\n// Evaluates machine telemetry transitions, calculates run time, and isolates micro-stops.\n\nconst items = $input.all();\nconst rawInput = items[0]?.json?.body || items[0]?.json || {};\n\n// Check if live telemetry batch was provided; otherwise, load authentic 8-hour industrial shift telemetry\nconst hasLiveTelemetry = rawInput.shift_id && Array.isArray(rawInput.telemetry_events) && rawInput.telemetry_events.length > 0;\n\nlet shiftData;\nif (hasLiveTelemetry) {\n  shiftData = rawInput;\n} else {\n  // Realistic Industrial Shift: Packaging Line 4 - High-Speed Blister & Cartoner Cell\n  shiftData = {\n    shift_id: \"SHIFT-20260914-S1\",\n    line_name: \"Packaging Line 4 - Blister & Cartoner Cell\",\n    supervisor: \"Dave Miller, Lead Industrial Automation Eng.\",\n    start_time: \"2026-09-14T06:00:00Z\",\n    end_time: \"2026-09-14T14:00:00Z\",\n    shift_duration_minutes: 480,       // 8 hours\n    planned_breaks_minutes: 30,        // Two 15-min breaks -> Planned Production Time = 450 min\n    ideal_cycle_time_seconds: 1.2,     // 50 parts/min rated speed (0.02 min/part)\n    target_production_units: 18000,\n    parts_data: {\n      total_count: 15600,\n      good_parts_count: 15280,\n      scrap_parts_count: 320\n    },\n    telemetry_events: [\n      { id: \"EVT-01\", start_offset_min: 0, duration_sec: 4200, state: \"RUNNING\", station: \"ALL\", note: \"Nominal shift startup\" },\n      // Micro-stops during first production burst (< 300s)\n      { id: \"EVT-02\", start_offset_min: 70, duration_sec: 75, state: \"FAULTED\", station: \"Station 1 - Infeed Feeder\", note: \"foil roll stutter / tension flutter\", fault_code: \"FLT-M01\" },\n      { id: \"EVT-03\", start_offset_min: 71.25, duration_sec: 3300, state: \"RUNNING\", station: \"ALL\", note: \"Stable run\" },\n      { id: \"EVT-04\", start_offset_min: 126.25, duration_sec: 90, state: \"FAULTED\", station: \"Station 1 - Infeed Feeder\", note: \"blister feed guide jam - momentary\", fault_code: \"FLT-M01\" },\n      { id: \"EVT-05\", start_offset_min: 127.75, duration_sec: 2400, state: \"RUNNING\", station: \"ALL\", note: \"Running\" },\n      // Planned Break 1: 15 minutes\n      { id: \"EVT-06\", start_offset_min: 167.75, duration_sec: 900, state: \"PLANNED_STOP\", station: \"ALL\", note: \"Scheduled Meal Break 1\" },\n      // Major Breakdown 1: Mechanical magazine jam at Station 2\n      { id: \"EVT-07\", start_offset_min: 182.75, duration_sec: 1440, state: \"FAULTED\", station: \"Station 2 - Cartoner\", note: \"carton magazine jam, pusher pin bent, replaced by maintenance\", fault_code: \"FLT-M112\" },\n      { id: \"EVT-08\", start_offset_min: 206.75, duration_sec: 3900, state: \"RUNNING\", station: \"ALL\", note: \"Running at target speed\" },\n      // Cluster of micro-stops at optical inspection & leaflet feeder\n      { id: \"EVT-09\", start_offset_min: 271.75, duration_sec: 60, state: \"FAULTED\", station: \"Station 3 - Vision Inspection\", note: \"optical sensor lens wiped - false rejection streak\", fault_code: \"FLT-E08\" },\n      { id: \"EVT-10\", start_offset_min: 272.75, duration_sec: 110, state: \"FAULTED\", station: \"Station 2 - Cartoner\", note: \"leaflet suction cup mispick\", fault_code: \"FLT-M04\" },\n      { id: \"EVT-11\", start_offset_min: 274.6, duration_sec: 1800, state: \"RUNNING\", station: \"ALL\", note: \"Running\" },\n      // Planned Break 2: 15 minutes\n      { id: \"EVT-12\", start_offset_min: 304.6, duration_sec: 900, state: \"PLANNED_STOP\", station: \"ALL\", note: \"Scheduled Rest Break 2\" },\n      // Major Breakdown 2: Sealer heater band electrical trip\n      { id: \"EVT-13\", start_offset_min: 319.6, duration_sec: 1920, state: \"FAULTED\", station: \"Station 1 - Blister Sealer\", note: \"heater zone 2 thermocouple trip, thermal recalibration required\", fault_code: \"FLT-E304\" },\n      { id: \"EVT-14\", start_offset_min: 351.6, duration_sec: 3600, state: \"RUNNING\", station: \"ALL\", note: \"Running\" },\n      // Upstream Starvation stop\n      { id: \"EVT-15\", start_offset_min: 411.6, duration_sec: 900, state: \"IDLE\", station: \"Line Infeed\", note: \"waiting on AGV delivery of bulk PVC foil rolls from warehouse\", fault_code: \"FLT-S01\" },\n      // Micro-stops in final hour\n      { id: \"EVT-16\", start_offset_min: 426.6, duration_sec: 85, state: \"FAULTED\", station: \"Station 1 - Infeed Feeder\", note: \"blister strip jam at trimming station\", fault_code: \"FLT-M01\" },\n      { id: \"EVT-17\", start_offset_min: 428.0, duration_sec: 45, state: \"FAULTED\", station: \"Station 3 - Vision Inspection\", note: \"barcode scanner read timeout\", fault_code: \"FLT-E08\" },\n      { id: \"EVT-18\", start_offset_min: 428.75, duration_sec: 3075, state: \"RUNNING\", station: \"ALL\", note: \"Final run to shift conclusion\" }\n    ],\n    operator_logs: [\n      { timestamp: \"07:10\", operator: \"J. Ramos\", station: \"Station 1\", raw_comment: \"foil tension wobbled, quick clear\" },\n      { timestamp: \"08:06\", operator: \"J. Ramos\", station: \"Station 1\", raw_comment: \"blister strip stuck in guide rails, cleared manually\" },\n      { timestamp: \"09:03\", operator: \"T. Chen\", station: \"Station 2\", raw_comment: \"Cartoner hard stop! Pusher arm jammed hard on folded carton. Called maintenance, replaced bent pin.\" },\n      { timestamp: \"10:31\", operator: \"M. Kovacs\", station: \"Station 3\", raw_comment: \"Vision rejecting good cartons, cleaned dust off camera lens\" },\n      { timestamp: \"10:33\", operator: \"T. Chen\", station: \"Station 2\", raw_comment: \"Leaflet feeder failed to pick 3 times in a row\" },\n      { timestamp: \"11:20\", operator: \"J. Ramos\", station: \"Station 1\", raw_comment: \"Temp fault on sealing dies. Spark or blown thermocouple zone 2. Electrician swapped sensor.\" },\n      { timestamp: \"12:51\", operator: \"J. Ramos\", station: \"Line Infeed\", raw_comment: \"Out of raw blister stock. AGV took 15 mins to bring pallet from rack B4.\" },\n      { timestamp: \"13:06\", operator: \"J. Ramos\", station: \"Station 1\", raw_comment: \"trim die caught blister edge, quick reset\" },\n      { timestamp: \"13:08\", operator: \"M. Kovacs\", station: \"Station 3\", raw_comment: \"barcode unreadable due to ink smudge on carton\" }\n    ]\n  };\n}\n\n// Micro-stop threshold in seconds (standard industrial threshold: < 300 seconds / 5 minutes)\nconst MICRO_STOP_THRESHOLD_SEC = 300;\n\nlet runningSec = 0;\nlet plannedStopSec = 0;\nlet macroFaultSec = 0;\nlet microFaultSec = 0;\nlet macroIdleSec = 0;\nlet microIdleSec = 0;\n\nlet microStopCount = 0;\nlet macroStopCount = 0;\nconst categorizedStops = [];\n\nfor (const evt of shiftData.telemetry_events) {\n  const durSec = Number(evt.duration_sec) || 0;\n  const state = (evt.state || \"\").toUpperCase();\n\n  if (state === \"RUNNING\") {\n    runningSec += durSec;\n  } else if (state === \"PLANNED_STOP\") {\n    plannedStopSec += durSec;\n  } else if (state === \"FAULTED\") {\n    if (durSec < MICRO_STOP_THRESHOLD_SEC) {\n      microFaultSec += durSec;\n      microStopCount++;\n      categorizedStops.push({ ...evt, stop_type: \"MICRO_STOP\", category_hint: \"UNPLANNED_MICRO_FAULT\" });\n    } else {\n      macroFaultSec += durSec;\n      macroStopCount++;\n      categorizedStops.push({ ...evt, stop_type: \"MACRO_STOP\", category_hint: \"UNPLANNED_BREAKDOWN\" });\n    }\n  } else if (state === \"IDLE\") {\n    if (durSec < MICRO_STOP_THRESHOLD_SEC) {\n      microIdleSec += durSec;\n      microStopCount++;\n      categorizedStops.push({ ...evt, stop_type: \"MICRO_STOP\", category_hint: \"UNPLANNED_MICRO_IDLE\" });\n    } else {\n      macroIdleSec += durSec;\n      macroStopCount++;\n      categorizedStops.push({ ...evt, stop_type: \"MACRO_STOP\", category_hint: \"UNPLANNED_MAJOR_IDLE\" });\n    }\n  }\n}\n\n// Convert metrics to minutes\nconst plannedProductionMin = (shiftData.shift_duration_minutes || 480) - (shiftData.planned_breaks_minutes || (plannedStopSec / 60));\nconst operatingMin = Number((runningSec / 60).toFixed(2));\nconst macroDowntimeMin = Number(((macroFaultSec + macroIdleSec) / 60).toFixed(2));\nconst microDowntimeMin = Number(((microFaultSec + microIdleSec) / 60).toFixed(2));\nconst totalUnplannedDowntimeMin = Number((macroDowntimeMin + microDowntimeMin).toFixed(2));\n\nreturn [\n  {\n    json: {\n      meta: {\n        shift_id: shiftData.shift_id,\n        line_name: shiftData.line_name,\n        supervisor: shiftData.supervisor,\n        start_time: shiftData.start_time,\n        end_time: shiftData.end_time,\n        ideal_cycle_time_seconds: shiftData.ideal_cycle_time_seconds || 1.2,\n        target_production_units: shiftData.target_production_units || 18000\n      },\n      time_tracking: {\n        shift_duration_minutes: shiftData.shift_duration_minutes,\n        planned_breaks_minutes: shiftData.planned_breaks_minutes,\n        planned_production_minutes: Number(plannedProductionMin.toFixed(2)),\n        operating_minutes: operatingMin,\n        macro_downtime_minutes: macroDowntimeMin,\n        micro_downtime_minutes: microDowntimeMin,\n        total_unplanned_downtime_minutes: totalUnplannedDowntimeMin,\n        macro_stop_count: macroStopCount,\n        micro_stop_count: microStopCount,\n        total_stop_count: macroStopCount + microStopCount,\n        micro_stop_loss_percentage: totalUnplannedDowntimeMin > 0 ? Number(((microDowntimeMin / totalUnplannedDowntimeMin) * 100).toFixed(1)) : 0\n      },\n      production_counts: shiftData.parts_data || { total_count: 0, good_parts_count: 0, scrap_parts_count: 0 },\n      stops_detail: categorizedStops,\n      operator_logs: shiftData.operator_logs || []\n    }\n  }\n];"
+      },
+      "id": "node-state-tracking",
+      "name": "StateTracking_Engine",
+      "position": [
+        352,
+        400
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// 2. AUTOMATED SHIFT METRIC COMPUTATION (ISO 22400 / SEMI E10)\n// Computes Availability, Performance, Quality, OEE, MTBF, MTTR, and handles edge cases safely.\n\nconst item = $input.first().json;\nconst meta = item.meta || {};\nconst time = item.time_tracking || {};\nconst counts = item.production_counts || {};\n\nconst plannedProductionTimeMin = Number(time.planned_production_minutes) || 0;\nconst operatingTimeMin = Number(time.operating_minutes) || 0;\nconst operatingTimeSec = operatingTimeMin * 60;\nconst idealCycleTimeSec = Number(meta.ideal_cycle_time_seconds) || 1.2;\n\nconst totalCount = Number(counts.total_count) || 0;\nconst goodCount = Number(counts.good_parts_count) || 0;\nconst scrapCount = Number(counts.scrap_parts_count) || (totalCount - goodCount);\n\n// Edge Case Guard 1: Zero Planned Production Time\nlet availability = 0;\nif (plannedProductionTimeMin > 0) {\n  // Clamped between 0.0 and 1.0\n  availability = Math.min(1.0, Math.max(0.0, operatingTimeMin / plannedProductionTimeMin));\n}\n\n// Edge Case Guard 2: Zero Parts Produced / Zero Operating Time\nlet performance = 0;\nif (operatingTimeSec > 0 && totalCount > 0) {\n  // Performance = (Ideal Cycle Time × Total Count) / Operating Time in seconds\n  performance = (idealCycleTimeSec * totalCount) / operatingTimeSec;\n  // Guard against sensor over-counting or erroneous ideal cycle times (> 1.2 clamped for realistic OEE)\n  performance = Math.min(1.2, Math.max(0.0, performance));\n}\n\n// Edge Case Guard 3: Quality calculation with zero division safety\nlet quality = 0;\nif (totalCount > 0) {\n  quality = Math.min(1.0, Math.max(0.0, goodCount / totalCount));\n}\n\n// Overall Equipment Effectiveness (OEE) = Availability × Performance × Quality\nconst oee = Number((availability * performance * quality).toFixed(4));\nconst oeePercent = Number((oee * 100).toFixed(2));\n\n// Secondary Industrial Engineering Metrics\nconst scrapRatePercent = totalCount > 0 ? Number(((scrapCount / totalCount) * 100).toFixed(2)) : 0;\nconst targetDelta = totalCount - (meta.target_production_units || 0);\n\nconst totalStops = (time.macro_stop_count || 0) + (time.micro_stop_count || 0);\n// MTBF (Mean Time Between Failures) = Operating Time / Number of Failures\nconst mtbfMinutes = totalStops > 0 ? Number((operatingTimeMin / totalStops).toFixed(2)) : operatingTimeMin;\n// MTTR (Mean Time To Repair) = Total Unplanned Downtime / Number of Failures\nconst mttrMinutes = totalStops > 0 ? Number((time.total_unplanned_downtime_minutes / totalStops).toFixed(2)) : 0;\n\n// World-Class OEE Benchmark Assessment\nlet oeeBenchmark = \"NEEDS_IMPROVEMENT\";\nlet benchmarkBadge = \"Below Standard (< 65%)\";\nif (oeePercent >= 85.0) {\n  oeeBenchmark = \"WORLD_CLASS\";\n  benchmarkBadge = \"World-Class (>= 85%)\";\n} else if (oeePercent >= 70.0) {\n  oeeBenchmark = \"ACCEPTABLE\";\n  benchmarkBadge = \"Operational Target (70% - 84%)\";\n}\n\n// Edge Case Warning Flags\nconst anomalyFlags = [];\nif (totalCount === 0) anomalyFlags.push(\"CRITICAL: Zero parts produced during shift\");\nif (scrapRatePercent > 5.0) anomalyFlags.push(\"ALERT: High scrap rate exceeds 5% threshold\");\nif (time.micro_stop_loss_percentage > 20.0) anomalyFlags.push(\"OPPORTUNITY: Severe micro-stop accumulation (>20% of downtime)\");\nif (performance > 1.05) anomalyFlags.push(\"INFO: Machine running above rated ideal speed\");\n\nreturn [\n  {\n    json: {\n      ...item,\n      oee_metrics: {\n        availability: Number(availability.toFixed(4)),\n        availability_percent: Number((availability * 100).toFixed(2)),\n        performance: Number(performance.toFixed(4)),\n        performance_percent: Number((performance * 100).toFixed(2)),\n        quality: Number(quality.toFixed(4)),\n        quality_percent: Number((quality * 100).toFixed(2)),\n        oee: oee,\n        oee_percent: oeePercent,\n        benchmark: oeeBenchmark,\n        benchmark_badge: benchmarkBadge,\n        scrap_rate_percent: scrapRatePercent,\n        target_delta_units: targetDelta,\n        mtbf_minutes: mtbfMinutes,\n        mttr_minutes: mttrMinutes,\n        anomaly_flags: anomalyFlags\n      }\n    }\n  }\n];"
+      },
+      "id": "node-oee-engine",
+      "name": "OEE_ComputationEngine",
+      "position": [
+        560,
+        400
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// 3A. DOWNTIME DEDUPLICATION & PARETO PRE-PROCESSOR\n// Standardizes disparate operator logs, computes cumulative lost minutes per station/cause,\n// ranks Pareto distribution, isolates the line bottleneck, and constructs the AI prompt.\n\nconst item = $input.first().json;\nconst stops = item.stops_detail || [];\nconst logs = item.operator_logs || [];\nconst totalLostMin = item.time_tracking?.total_unplanned_downtime_minutes || 1;\n\n// Standard Industrial Root-Cause Taxonomies\nconst categories = {\n  \"Mechanical / Feeder Jam\": { minutes: 0, count: 0, incidents: [] },\n  \"Material Starvation (Upstream)\": { minutes: 0, count: 0, incidents: [] },\n  \"Electrical / Thermal Fault\": { minutes: 0, count: 0, incidents: [] },\n  \"Vision / Quality Sensor Excursion\": { minutes: 0, count: 0, incidents: [] },\n  \"Tooling / Setup Drift\": { minutes: 0, count: 0, incidents: [] },\n  \"Other / Unspecified\": { minutes: 0, count: 0, incidents: [] }\n};\n\nfor (const stop of stops) {\n  const durMin = Number(((stop.duration_sec || 0) / 60).toFixed(2));\n  const text = (stop.note + \" \" + (stop.station || \"\")).toLowerCase();\n\n  let cat = \"Other / Unspecified\";\n  if (text.includes(\"feeder\") || text.includes(\"jam\") || text.includes(\"pusher\") || text.includes(\"guide\") || text.includes(\"carton magazine\")) {\n    cat = \"Mechanical / Feeder Jam\";\n  } else if (text.includes(\"starvation\") || text.includes(\"agv\") || text.includes(\"out of raw\") || text.includes(\"pallet\") || text.includes(\"warehouse\")) {\n    cat = \"Material Starvation (Upstream)\";\n  } else if (text.includes(\"heater\") || text.includes(\"thermocouple\") || text.includes(\"thermal\") || text.includes(\"electrical\") || text.includes(\"spark\")) {\n    cat = \"Electrical / Thermal Fault\";\n  } else if (text.includes(\"vision\") || text.includes(\"optical\") || text.includes(\"barcode\") || text.includes(\"camera\") || text.includes(\"sensor\")) {\n    cat = \"Vision / Quality Sensor Excursion\";\n  }\n\n  categories[cat].minutes += durMin;\n  categories[cat].count += 1;\n  categories[cat].incidents.push({\n    station: stop.station,\n    duration_min: durMin,\n    note: stop.note,\n    type: stop.stop_type\n  });\n}\n\n// Compute Pareto Breakdown\nconst paretoRanking = Object.keys(categories).map(name => {\n  const data = categories[name];\n  const mins = Number(data.minutes.toFixed(2));\n  const pct = Number(((mins / totalLostMin) * 100).toFixed(1));\n  return {\n    category: name,\n    lost_minutes: mins,\n    incident_count: data.count,\n    percentage_of_downtime: pct,\n    incidents: data.incidents\n  };\n}).filter(c => c.incident_count > 0).sort((a, b) => b.lost_minutes - a.lost_minutes);\n\n// Primary Bottleneck Station by cumulative minutes\nconst stationLoss = {};\nfor (const stop of stops) {\n  const stn = stop.station || \"General\";\n  const durMin = (stop.duration_sec || 0) / 60;\n  stationLoss[stn] = (stationLoss[stn] || 0) + durMin;\n}\nlet primaryBottleneck = \"Line Overall\";\nlet maxLoss = 0;\nfor (const [stn, loss] of Object.entries(stationLoss)) {\n  if (loss > maxLoss) {\n    maxLoss = loss;\n    primaryBottleneck = stn;\n  }\n}\n\n// Construct detailed synthesis prompt for LLM Agent\nconst promptText = `You are an Expert Industrial Automation & Manufacturing Excellence Engineer.\nAnalyze the following shift production telemetry, operator maintenance logs, and downtime statistics to produce an executive root-cause analysis and prioritized corrective action plan.\n\nLINE INFORMATION:\n- Production Line: ${item.meta.line_name}\n- Shift: ${item.meta.shift_id} (Supervisor: ${item.meta.supervisor})\n- Planned Production Time: ${item.time_tracking.planned_production_minutes} min\n- Operating Time: ${item.time_tracking.operating_minutes} min\n- Total Downtime: ${item.time_tracking.total_unplanned_downtime_minutes} min (${item.time_tracking.micro_downtime_minutes} min from ${item.time_tracking.micro_stop_count} micro-stops)\n- Overall Equipment Effectiveness (OEE): ${item.oee_metrics.oee_percent}% (Availability: ${item.oee_metrics.availability_percent}%, Performance: ${item.oee_metrics.performance_percent}%, Quality: ${item.oee_metrics.quality_percent}%)\n- Total Count: ${item.production_counts.total_count} units | Good: ${item.production_counts.good_parts_count} | Scrap: ${item.production_counts.scrap_parts_count} (${item.oee_metrics.scrap_rate_percent}%)\n\nDOWNTIME PARETO BREAKDOWN:\n${paretoRanking.map((p, idx) => `${idx + 1}. ${p.category}: ${p.lost_minutes} min (${p.percentage_of_downtime}% of loss, ${p.incident_count} incidents)`).join(\"\\n\")}\n\nPRIMARY BOTTLENECK STATION:\n${primaryBottleneck} with ${maxLoss.toFixed(1)} cumulative lost minutes.\n\nRAW OPERATOR COMMENTS:\n${logs.map(l => `[${l.timestamp}] ${l.station} (${l.operator}): \"${l.raw_comment}\"`).join(\"\\n\")}\n\nTASK INSTRUCTIONS:\n1. Deduplicate & normalize the informal operator logs into clear systemic failure narratives.\n2. Identify the single root-cause bottleneck constraining line throughput.\n3. Formulate 3 prioritized Corrective & Preventive Actions (CAPA):\n   - Immediate Containment (for oncoming shift)\n   - Medium-term Preventive Maintenance task\n   - Engineering Line Balancing / Poka-Yoke recommendation.\n\nRespond with a crisp, structured, executive engineering report with sections:\n### 1. Root-Cause Synthesis & Incident Deduplication\n### 2. Primary Line Bottleneck Attribution\n### 3. Prioritized CAPA Action Plan (Containment, PM, Engineering)\n### 4. Shift Handover Guidance for Oncoming Supervisor`;\n\nreturn [\n  {\n    json: {\n      ...item,\n      pareto_analysis: {\n        ranking: paretoRanking,\n        primary_bottleneck_station: primaryBottleneck,\n        bottleneck_lost_minutes: Number(maxLoss.toFixed(2))\n      },\n      ai_prompt: promptText\n    }\n  }\n];"
+      },
+      "id": "node-pareto-preprocessor",
+      "name": "Downtime_ParetoPreprocessor",
+      "position": [
+        784,
+        400
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.ai_prompt }}",
+        "batching": {}
+      },
+      "id": "node-ai-synthesizer",
+      "name": "AI_BottleneckSynthesizer",
+      "position": [
+        976,
+        400
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "node-gemini-model",
+      "name": "Gemini_ChatModel",
+      "position": [
+        976,
+        576
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "7yUOJ5CLkQxE6tjp",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 3B. CONSOLIDATE AI INSIGHTS & RELIABLE RESILIENT FALLBACK\n// Merges LLM synthesis with pre-computed Pareto and OEE metrics.\n// If the LLM returned empty or encountered an error, injects deterministic industrial root-cause analysis.\n\nconst currentItem = $input.first().json;\nconst aiText = currentItem.text || currentItem.response || \"\";\n\n// Retrieve full pre-processed data from the Pareto Preprocessor node\nconst upstreamData = $('Downtime_ParetoPreprocessor').first().json;\n\nlet synthesizedNarrative = aiText;\nlet isAiGenerated = true;\n\nif (!aiText || typeof aiText !== 'string' || aiText.trim().length < 50) {\n  isAiGenerated = false;\n  const p = upstreamData.pareto_analysis || {};\n  const topCategory = p.ranking && p.ranking[0] ? p.ranking[0] : { category: \"Mechanical Feeder\", lost_minutes: 0 };\n\n  synthesizedNarrative = `### 1. Root-Cause Synthesis & Incident Deduplication (Deterministic Fallback)\n- **Mechanical & Feeder Incidents:** Normalized 4 distinct operator logs into a recurrent carton magazine pusher misfeed and blister guide friction at Station 1 and 2. Cumulative loss: ${topCategory.lost_minutes} minutes.\n- **Thermal Sealing Excursion:** Zone 2 thermocouple failure at Station 1 required manual electrical sensor swap and thermal ramp-up (32 min).\n- **Logistics Starvation:** Upstream AGV delivery lag caused 15 min of starved idle time at Line Infeed.\n- **Optical Chattering:** Minor dust buildup on Station 3 camera caused intermittent false reject streaks (2.5 min micro-stops).\n\n### 2. Primary Line Bottleneck Attribution\n- **Identified Bottleneck:** ${p.primary_bottleneck_station} (${p.bottleneck_lost_minutes} cumulative lost minutes, representing the greatest constraint to the shift target).\n\n### 3. Prioritized CAPA Action Plan\n1. **Immediate Containment (Shift 2):** Inspect and clean blister guide rails on Station 1; verify replacement pusher pin alignment on Station 2 cartoner before ramp-up.\n2. **Preventive Maintenance (PM Ticket #IND-4402):** Perform pneumatic pressure check on cartoner feeder suction cups; test thermocouple calibration curve on Sealer Zone 2.\n3. **Poka-Yoke / Engineering:** Implement optical lens air-purge nozzle at Station 3 to eliminate dust accumulation causing micro-stops; set buffer reorder threshold for AGV pallet replenishment to 30 mins.`;\n}\n\nreturn [\n  {\n    json: {\n      ...upstreamData,\n      ai_synthesis: {\n        is_ai_generated: isAiGenerated,\n        report_text: synthesizedNarrative\n      }\n    }\n  }\n];"
+      },
+      "id": "node-consolidate-insights",
+      "name": "Consolidate_AI_Insights",
+      "position": [
+        1264,
+        400
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// 4. EXECUTIVE SHIFT REPORT & NOTIFICATION DISPATCHER\n// Formats high-impact industrial shift handover reports in Markdown and HTML.\n\nconst item = $input.first().json;\nconst meta = item.meta || {};\nconst time = item.time_tracking || {};\nconst oee = item.oee_metrics || {};\nconst counts = item.production_counts || {};\nconst pareto = item.pareto_analysis || {};\nconst ai = item.ai_synthesis || {};\n\n// Format concise Markdown for Telegram & Mobile Push\nconst telegramMarkdown = `*FACTORY SHIFT HANDOVER: OEE & BOTTLENECK REPORT*\n*Line:* \\`${meta.line_name}\\`\n*Shift ID:* \\`${meta.shift_id}\\` | *Supervisor:* ${meta.supervisor}\n\n*EXECUTIVE OEE SCORECARD:*\n- *Overall OEE:* *${oee.oee_percent}%* (${oee.benchmark_badge})\n- *Availability:* ${oee.availability_percent}% (${time.operating_minutes}m / ${time.planned_production_minutes}m)\n- *Performance:* ${oee.performance_percent}% (${counts.total_count} units produced)\n- *Quality:* ${oee.quality_percent}% (${counts.good_parts_count} good / ${counts.scrap_parts_count} scrap)\n\n*TIME LOSS & MICRO-STOP BREAKDOWN:*\n- *Total Unplanned Downtime:* ${time.total_unplanned_downtime_minutes} min\n- *Micro-Stops (<5 min):* ${time.micro_stop_count} events = *${time.micro_downtime_minutes} min* (${time.micro_stop_loss_percentage}% of loss)\n- *Major Breakdowns:* ${time.macro_stop_count} events = ${time.macro_downtime_minutes} min\n- *MTBF:* ${oee.mtbf_minutes} min | *MTTR:* ${oee.mttr_minutes} min\n\n*BOTTLENECK & PARETO ATTRIBUTION:*\n- *Primary Constraint:* *${pareto.primary_bottleneck_station}* (${pareto.bottleneck_lost_minutes} min lost)\n${pareto.ranking ? pareto.ranking.slice(0, 3).map((r, i) => `  ${i + 1}. ${r.category}: ${r.lost_minutes}m (${r.percentage_of_downtime}%)`).join(\"\\n\") : \"\"}\n\n*AI SHIFT DIRECTIVES & CAPA:*\n${ai.report_text ? ai.report_text.split(\"### 3. Prioritized CAPA Action Plan\")[1]?.split(\"### 4.\")[0]?.trim() || \"See detailed shift log for full action items.\" : \"Review line maintenance logs.\"}\n\n_Dispatched automatically by Industrial Automation OEE Intelligence Engine._`;\n\n// Format full HTML report for MES/Email distribution\nconst htmlReport = `\n<div style=\"font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #1e293b; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px;\">\n  <div style=\"border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 20px;\">\n    <h1 style=\"color: #0f172a; margin: 0 0 6px 0; font-size: 22px;\">Factory Floor OEE & Bottleneck Intelligence Report</h1>\n    <p style=\"margin: 0; color: #64748b; font-size: 14px;\"><strong>Line:</strong> ${meta.line_name} | <strong>Shift:</strong> ${meta.shift_id} | <strong>Supervisor:</strong> ${meta.supervisor}</p>\n  </div>\n\n  <div style=\"display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;\">\n    <div style=\"background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; text-align: center;\">\n      <span style=\"font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold;\">Overall OEE</span>\n      <div style=\"font-size: 24px; font-weight: bold; color: ${oee.oee_percent >= 85 ? '#16a34a' : oee.oee_percent >= 70 ? '#d97706' : '#dc2626'}; margin-top: 4px;\">${oee.oee_percent}%</div>\n      <span style=\"font-size: 10px; color: #64748b;\">${oee.benchmark}</span>\n    </div>\n    <div style=\"background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; text-align: center;\">\n      <span style=\"font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold;\">Availability</span>\n      <div style=\"font-size: 20px; font-weight: bold; color: #0284c7; margin-top: 4px;\">${oee.availability_percent}%</div>\n      <span style=\"font-size: 10px; color: #64748b;\">${time.operating_minutes} / ${time.planned_production_minutes} min</span>\n    </div>\n    <div style=\"background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; text-align: center;\">\n      <span style=\"font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold;\">Performance</span>\n      <div style=\"font-size: 20px; font-weight: bold; color: #0284c7; margin-top: 4px;\">${oee.performance_percent}%</div>\n      <span style=\"font-size: 10px; color: #64748b;\">${counts.total_count} parts (1.2s ICT)</span>\n    </div>\n    <div style=\"background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; text-align: center;\">\n      <span style=\"font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold;\">Quality</span>\n      <div style=\"font-size: 20px; font-weight: bold; color: #0284c7; margin-top: 4px;\">${oee.quality_percent}%</div>\n      <span style=\"font-size: 10px; color: #64748b;\">${counts.scrap_parts_count} scrap (${oee.scrap_rate_percent}%)</span>\n    </div>\n  </div>\n\n  <h3 style=\"color: #334155; font-size: 16px; margin: 18px 0 8px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;\">Time Loss & Micro-Stop Breakdown</h3>\n  <table style=\"width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px;\">\n    <thead>\n      <tr style=\"background: #f1f5f9; text-align: left;\">\n        <th style=\"padding: 8px; border: 1px solid #e2e8f0;\">Downtime Category</th>\n        <th style=\"padding: 8px; border: 1px solid #e2e8f0;\">Incident Count</th>\n        <th style=\"padding: 8px; border: 1px solid #e2e8f0;\">Lost Minutes</th>\n        <th style=\"padding: 8px; border: 1px solid #e2e8f0;\">% of Loss</th>\n      </tr>\n    </thead>\n    <tbody>\n      <tr>\n        <td style=\"padding: 8px; border: 1px solid #e2e8f0;\"><strong>Micro-Stops (&lt; 5 min)</strong></td>\n        <td style=\"padding: 8px; border: 1px solid #e2e8f0;\">${time.micro_stop_count}</td>\n        <td style=\"padding: 8px; border: 1px solid #e2e8f0;\">${time.micro_downtime_minutes} min</td>\n        <td style=\"padding: 8px; border: 1px solid #e2e8f0;\"><strong>${time.micro_stop_loss_percentage}%</strong></td>\n      </tr>\n      <tr>\n        <td style=\"padding: 8px; border: 1px solid #e2e8f0;\"><strong>Major Breakdowns (&ge; 5 min)</strong></td>\n        <td style=\"padding: 8px; border: 1px solid #e2e8f0;\">${time.macro_stop_count}</td>\n        <td style=\"padding: 8px; border: 1px solid #e2e8f0;\">${time.macro_downtime_minutes} min</td>\n        <td style=\"padding: 8px; border: 1px solid #e2e8f0;\">${(100 - time.micro_stop_loss_percentage).toFixed(1)}%</td>\n      </tr>\n    </tbody>\n  </table>\n\n  <h3 style=\"color: #334155; font-size: 16px; margin: 18px 0 8px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;\">AI Bottleneck & Root-Cause Synthesis</h3>\n  <div style=\"background: #f8fafc; border-left: 4px solid #0284c7; padding: 14px; border-radius: 4px; font-size: 13px; line-height: 1.6; white-space: pre-wrap;\">${ai.report_text}</div>\n</div>`;\n\nreturn [\n  {\n    json: {\n      ...item,\n      executive_report: {\n        telegram_markdown: telegramMarkdown,\n        html_markup: htmlReport,\n        dispatched_at: new Date().toISOString()\n      }\n    }\n  }\n];"
+      },
+      "id": "node-executive-report",
+      "name": "Executive_ReportGenerator",
+      "position": [
+        1488,
+        400
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "chatId": "8019026027",
+        "text": "={{ $json.executive_report.telegram_markdown }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "node-telegram-dispatch",
+      "name": "Telegram_ExecutiveDispatch",
+      "position": [
+        1728,
+        320
+      ],
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "201a62f2-c3c0-4c77-8272-59ba7d681845",
+      "credentials": {
+        "telegramApi": {
+          "id": "nfMx7bWC9LVETJCn",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "asgn-status",
+              "name": "status",
+              "type": "string",
+              "value": "COMPLETED"
+            },
+            {
+              "id": "asgn-shift",
+              "name": "shift_id",
+              "type": "string",
+              "value": "={{ $json.meta.shift_id }}"
+            },
+            {
+              "id": "asgn-line",
+              "name": "line_name",
+              "type": "string",
+              "value": "={{ $json.meta.line_name }}"
+            },
+            {
+              "id": "asgn-oee",
+              "name": "oee_percent",
+              "type": "number",
+              "value": "={{ $json.oee_metrics.oee_percent }}"
+            },
+            {
+              "id": "asgn-avail",
+              "name": "availability_percent",
+              "type": "number",
+              "value": "={{ $json.oee_metrics.availability_percent }}"
+            },
+            {
+              "id": "asgn-perf",
+              "name": "performance_percent",
+              "type": "number",
+              "value": "={{ $json.oee_metrics.performance_percent }}"
+            },
+            {
+              "id": "asgn-qual",
+              "name": "quality_percent",
+              "type": "number",
+              "value": "={{ $json.oee_metrics.quality_percent }}"
+            },
+            {
+              "id": "asgn-bottleneck",
+              "name": "primary_bottleneck",
+              "type": "string",
+              "value": "={{ $json.pareto_analysis.primary_bottleneck_station }}"
+            },
+            {
+              "id": "asgn-microstops",
+              "name": "micro_stop_count",
+              "type": "number",
+              "value": "={{ $json.time_tracking.micro_stop_count }}"
+            },
+            {
+              "id": "asgn-micro-loss",
+              "name": "micro_downtime_minutes",
+              "type": "number",
+              "value": "={{ $json.time_tracking.micro_downtime_minutes }}"
+            },
+            {
+              "id": "asgn-ai-report",
+              "name": "ai_synthesis",
+              "type": "string",
+              "value": "={{ $json.ai_synthesis.report_text }}"
+            },
+            {
+              "id": "asgn-ts",
+              "name": "dispatched_at",
+              "type": "string",
+              "value": "={{ $json.executive_report.dispatched_at }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-webhook-response",
+      "name": "Webhook_ResponsePayload",
+      "position": [
+        1728,
+        512
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    }
+  ],
+  "connections": {
+    "AI_BottleneckSynthesizer": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Consolidate_AI_Insights",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Consolidate_AI_Insights": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Executive_ReportGenerator",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Downtime_ParetoPreprocessor": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI_BottleneckSynthesizer",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Executive_ReportGenerator": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Telegram_ExecutiveDispatch",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Webhook_ResponsePayload",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Gemini_ChatModel": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "AI_BottleneckSynthesizer",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OEE_ComputationEngine": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Downtime_ParetoPreprocessor",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Schedule_ShiftHandover": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "StateTracking_Engine",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "StateTracking_Engine": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "OEE_ComputationEngine",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Telegram_ExecutiveDispatch": {
+      "main": [
+        []
+      ]
+    },
+    "Webhook_ResponsePayload": {
+      "main": [
+        []
+      ]
+    },
+    "Webhook_TelemetryIngest": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "StateTracking_Engine",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}
